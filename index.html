@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Don't Forget</title>
+
+  <style>
+    :root {
+      --bg: #0b0b0f;
+      --text: #f2f2f7;
+      --muted: rgba(242, 242, 247, 0.7);
+      --card: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(1200px 800px at 50% 30%, rgba(255,255,255,0.08), transparent 55%),
+                  var(--bg);
+      color: var(--text);
+      font-family: Arial, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    /* Center stage UI */
+    .stage {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      pointer-events: none;
+    }
+
+    .panel {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 18px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      position: relative;
+      z-index: 2;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.3px;
+      text-transform: lowercase;
+      color: var(--text);
+    }
+
+    .hint {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    button:hover { background: rgba(255,255,255,0.12); }
+
+    /* Layer where distractions get added */
+    #spawnLayer {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .spawn {
+      position: absolute;
+      width: clamp(140px, 18vw, 320px);
+      height: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 18px 55px rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.35);
+      transform-origin: center;
+      animation: popIn 160ms ease-out;
+    }
+
+    .spawn img,
+    .spawn video {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 14px;
+    }
+
+    .spawn video {
+      background: #000;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.88) rotate(var(--rot)); opacity: 0.0; }
+      to   { transform: scale(1.0)  rotate(var(--rot)); opacity: 1.0; }
+    }
+
+    /* optional: keep the center panel always readable */
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(500px 320px at 50% 50%, rgba(0,0,0,0.35), transparent 70%);
+      z-index: -1;
+    }
+
+    /* ----------------------------- */
+    /* NEW: Floating cover image that moves + fades */
+    /* ----------------------------- */
+    .floatingCover {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 220px;
+      height: 220px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: #111;
+      overflow: hidden;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      user-select: none;
+
+      /* start centered */
+      transform: translate(-50%, -50%);
+
+      /* on click we animate position; fade happens separately */
+      transition:
+        left 900ms ease,
+        top  900ms ease,
+        transform 900ms ease,
+        opacity 2400ms ease;
+
+      z-index: 20; /* above everything */
+      opacity: 1;
+    }
+
+    .floatingCover:hover { transform: translate(-50%, -50%) scale(1.02); }
+    .floatingCover:active { transform: translate(-50%, -50%) scale(0.99); }
+
+    .floatingCover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- distractions go here -->
+  <div id="spawnLayer"></div>
+
+  <!-- NEW: the floating cover image (starts centered, then moves) -->
+  <div class="floatingCover" id="mainBtn" title="Click me">
+    <img src="media/coverimage.jpg" alt="Main cover image" />
+  </div>
+
+  <!-- center UI (text + buttons stay centered) -->
+  <div class="stage">
+    <div class="panel">
+      <h1>don't forget whats important</h1>
+      <p class="hint">click the image. it will get noisy.</p>
+
+      <div class="row">
+        <button id="clearBtn" type="button">Clear</button>
+        <button id="toggleSoundBtn" type="button">Video Sound: Off</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1) Put your media file names here (from /media).
+    const MEDIA = [
+      "apple.jpg",
+      "Instagram Messages.mp4",
+      "Screenshot 2026-02-02 215245.png",
+      "venom.mp4",
+      "little.mp4",
+      "trumpetcats.mp4",
+      "dapupdog.mp4",
+      "the drip.mp4",
+      "irlsubway.mp4",
+      "subwaypasta.mp4",
+      "ragedog1.mp4",
+      "ragedog2.mp4",
+      "patrick.png",
+      "spongebob.mp4",
+      "stickdog.mp4",
+      "patrick2.png",
+      "miku.jpg",
+      "miku2.webp",
+      "67.jpg",
+      "fish.webp",
+      "joever.webp",
+      "flint.webp",
+      "brick.webp",
+      "man.webp",
+      "yum.webp",
+      "shadow.webp",
+      
+
+
+
+    ];
+
+    // Settings
+    const spawnLayer = document.getElementById("spawnLayer");
+    const mainBtn = document.getElementById("mainBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const toggleSoundBtn = document.getElementById("toggleSoundBtn");
+
+    let z = 1;
+    let videoSoundOn = false;
+
+    // NEW: cover fade timer
+    let fadeTimer = null;
+
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function isVideo(file) {
+      return /\.(mp4|webm|ogg)$/i.test(file);
+    }
+
+    function pickRandomMedia() {
+      const file = MEDIA[Math.floor(Math.random() * MEDIA.length)];
+      return "media/" + file;
+    }
+
+    function spawnRandomThing() {
+      const src = pickRandomMedia();
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "spawn";
+
+      const rot = rand(-14, 14).toFixed(2) + "deg";
+      wrapper.style.setProperty("--rot", rot);
+
+      const pad = 24;
+      const x = rand(pad, w - pad);
+      const y = rand(pad, h - pad);
+
+      wrapper.style.left = x + "px";
+      wrapper.style.top = y + "px";
+      wrapper.style.zIndex = String(++z);
+      wrapper.style.transform = `translate(-50%, -50%) rotate(${rot})`;
+
+      if (isVideo(src)) {
+        const vid = document.createElement("video");
+        vid.src = src;
+        vid.autoplay = true;
+        vid.loop = true;
+        vid.muted = !videoSoundOn;
+        vid.playsInline = true;
+        vid.controls = false;
+        wrapper.appendChild(vid);
+      } else {
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = "spawned media";
+        wrapper.appendChild(img);
+      }
+
+      wrapper.addEventListener("pointerdown", () => {
+        wrapper.style.zIndex = String(++z);
+      });
+
+      spawnLayer.appendChild(wrapper);
+    }
+
+    // NEW: move cover to a different spot, then start slow fade
+    function moveCoverAndFade() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      // keep it inside the viewport
+      const size = 220;
+      const pad = 20 + size / 2;
+
+      const x = rand(pad, w - pad);
+      const y = rand(pad, h - pad);
+
+      // jump back to visible immediately on click
+      mainBtn.style.opacity = "1";
+
+      // move it
+      mainBtn.style.left = x + "px";
+      mainBtn.style.top = y + "px";
+      mainBtn.style.transform = "translate(-50%, -50%)";
+
+      // restart fade timer
+      if (fadeTimer) clearTimeout(fadeTimer);
+      fadeTimer = setTimeout(() => {
+        mainBtn.style.opacity = "0.15"; // how faded it gets
+      }, 800); // how long after click before fading starts
+    }
+
+    // Click main image: spawn + move + fade
+    mainBtn.addEventListener("click", () => {
+      spawnRandomThing();
+      moveCoverAndFade();
+    });
+
+    // Clear all distractions
+    clearBtn.addEventListener("click", () => {
+      spawnLayer.innerHTML = "";
+      z = 1;
+
+      // optional: bring cover back to center & visible when clearing
+      mainBtn.style.left = "50%";
+      mainBtn.style.top = "50%";
+      mainBtn.style.opacity = "1";
+    });
+
+    // Toggle video sound for newly spawned videos
+    toggleSoundBtn.addEventListener("click", () => {
+      videoSoundOn = !videoSoundOn;
+      toggleSoundBtn.textContent = `Video Sound: ${videoSoundOn ? "On" : "Off"}`;
+    });
+
+    // Bonus: press space to spawn too (also moves/fades cover)
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        spawnRandomThing();
+        moveCoverAndFade();
+      }
+    });
+
+    // NEW: start in center and begin fading if you want (optional)
+    // Comment this out if you only want fade AFTER first click.
+    // moveCoverAndFade();
+  </script>
+</body>
+</html>
